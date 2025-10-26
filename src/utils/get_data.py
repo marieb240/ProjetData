@@ -6,7 +6,7 @@ RAW_DIR = Path("data/raw")
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
 def download_static(url: str, out_name: str) -> Path:
-    """Télécharge un fichier (CSV/JSON/…) et le stocke en brut dans data/raw/."""
+    #Télécharge un fichier (CSV/JSON) et le stocke en brut dans data/raw/
     dest = RAW_DIR / out_name
     r = requests.get(url, timeout=30)
     r.raise_for_status()
@@ -15,4 +15,4 @@ def download_static(url: str, out_name: str) -> Path:
 
 if __name__ == "__main__":
     # Exemple : remplacer par l’URL de ton dataset
-    download_static("https://exemple.org/mon_fichier.csv", "interventions2023.csv")
+    download_static("https://static.data.gouv.fr/resources/interventions-realisees-par-les-services-d-incendie-et-de-secours/20250804-085406/interventions2023.csv", "interventions2023.csv")
