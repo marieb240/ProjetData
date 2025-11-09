@@ -44,7 +44,7 @@ def _extract_one(zip_bytes: bytes, match_substr: str, out_path: Path) -> None:
 
         _save(out_path, zf.read(chosen))
 
-def main() -> None:
+def get_data() -> None:
     """Télécharge et extrait le fichier listings du zip Airbnb """
     zip_path = RAW_DIR / ZIP_NAME
     csv_path = RAW_DIR / OUT_CSV
@@ -70,6 +70,8 @@ def main() -> None:
     print(f"extraction du fichier '{TARGET_MATCH}' → {csv_path}")
     _extract_one(zip_bytes, TARGET_MATCH, csv_path)
     print(f"fichier extrait → {csv_path}")
+def main() -> None:
+    get_data()
 
 if __name__ == "__main__":
     main()
