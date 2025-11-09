@@ -37,3 +37,11 @@ def render_footer() -> html.Footer:
             "marginTop": "auto",  # colle le footer en bas même si peu de contenu
         },
     )
+from dash import html
+
+footer = html.Footer(
+    [
+        html.P("Projet Data - Airbnb Paris • ESIEE", className="footer-text"),
+    ],
+    className="app-footer",
+)
