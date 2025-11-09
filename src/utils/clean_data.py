@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
+from src.utils.get_data import get_data
 
 RAW_DIR = Path("data/raw")
 CLEAN_DIR = Path("data/cleaned")
@@ -33,8 +34,9 @@ def _already_clean(input_file: Path, output_file: Path) -> bool:
 def clean_airbnb_paris() -> Path:
     """Nettoie le csv brut """
     if not INPUT_FILE.exists():
-        raise FileNotFoundError(f"Fichier brut introuvable : {INPUT_FILE}")
-
+        get_data()
+        print(f" Récupération des données brutes → {INPUT_FILE}")
+    
     # si déjà propre et à jour : on ne refait pas le travail
     if _already_clean(INPUT_FILE, OUTPUT_FILE):
         print(f" Données déjà clean → {OUTPUT_FILE}")
