@@ -1,12 +1,22 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html
+import dash
 
-app = Dash(__name__)
-app.title = "DataProject"
+from src.components.header import header
+from src.components.navbar import navbar
+from src.components.footer import footer
 
-app.layout = html.Div([
-    html.H1("Bonjour 👋"),
-    html.P("Ceci est mon premier dashboard Dash minimal.")
-])
+app = Dash(__name__, use_pages=True, pages_folder="src/pages")
+server = app.server  # utile si déploiement
+
+app.layout = html.Div(
+    [
+        header,
+        navbar,
+        dash.page_container,  # ici Dash affichera le contenu des pages
+        footer,
+    ],
+    className="page-container",
+)
 
 if __name__ == "__main__":
     app.run(debug=True)

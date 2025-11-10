@@ -1,0 +1,97 @@
+.page-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+.app-header {
+    padding: 24px 40px 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.app-title {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 700;
+}
+
+.app-subtitle {
+    margin: 4px 0 0;
+    color: #555;
+}
+
+.app-navbar {
+    padding: 10px 40px;
+    border-bottom: 1px solid #eee;
+    background-color: #fafafa;
+}
+
+.nav-link {
+    margin-right: 20px;
+    text-decoration: none;
+    color: #0070c9;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    text-decoration: underline;
+}
+
+.page-content {
+    flex: 1;
+    padding: 30px 40px 40px;
+}
+
+.section-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+}
+
+.section-subtitle {
+    margin: 0 0 24px;
+    color: #555;
+}
+
+.section-text {
+    margin-top: 24px;
+    max-width: 700px;
+    color: #444;
+}
+
+.kpi-container {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.kpi-card {
+    padding: 14px 18px;
+    border-radius: 10px;
+    border: 1px solid #eee;
+    background-color: #fafafa;
+    min-width: 180px;
+}
+
+.kpi-label {
+    font-size: 13px;
+    color: #666;
+}
+
+.kpi-value {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.chart-block {
+    margin-top: 24px;
+}
+
+.app-footer {
+    padding: 12px 40px 16px;
+    border-top: 1px solid #eee;
+    color: #777;
+    font-size: 13px;
+}
