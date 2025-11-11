@@ -19,26 +19,31 @@ else:
 
 fig_price_dist = (
     px.histogram(
-        df,
+        df[df["price"] < 500], 
         x="price",
-        nbins=50,
+        nbins=60,
         title="Distribution des prix par nuit (€)",
     )
     if df is not None and "price" in df.columns
     else None
 )
 
-fig_room_type = (
-    px.bar(
-        df["room_type"].value_counts().reset_index(),
-        x="index",
-        y="room_type",
-        labels={"index": "Type de logement", "room_type": "Nombre d’annonces"},
+fig_room_type = None
+
+if df is not None and "room_type" in df.columns:
+    # value_counts donne un DF avec colonnes ['room_type', 'count'] après reset_index
+    rt_counts = df["room_type"].value_counts().reset_index()
+    rt_counts.columns = ["room_type", "count"]  # on force les noms, uniques et propres
+
+    fig_room_type = px.bar(
+        rt_counts,
+        x="room_type",
+        y="count",
+        labels={"room_type": "Type de logement", "count": "Nombre d’annonces"},
         title="Répartition par type de logement",
     )
-    if df is not None and "room_type" in df.columns
-    else None
-)
+
+
 
 layout = html.Div(
     [
