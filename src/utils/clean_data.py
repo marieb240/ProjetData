@@ -35,11 +35,11 @@ def clean_airbnb_paris() -> Path:
     """Nettoie le csv brut """
     if not INPUT_FILE.exists():
         get_data()
-        print(f" Récupération des données brutes → {INPUT_FILE}")
+        print(f"Récupération des données brutes → {INPUT_FILE}")
     
     # si déjà propre et à jour : on ne refait pas le travail
     if _already_clean(INPUT_FILE, OUTPUT_FILE):
-        print(f" Données déjà clean → {OUTPUT_FILE}")
+        print(f"Données déjà clean → {OUTPUT_FILE}")
         return OUTPUT_FILE
 
     df = pd.read_csv(INPUT_FILE, encoding="latin1", low_memory=False) # latin1 pour les accents
@@ -64,7 +64,7 @@ def clean_airbnb_paris() -> Path:
 
     # exporter
     df.to_csv(OUTPUT_FILE, index=False)
-    print(f" Données nettoyées → {OUTPUT_FILE}")
+    print(f"Données nettoyées → {OUTPUT_FILE}")
     return OUTPUT_FILE
 
 def main() -> None:

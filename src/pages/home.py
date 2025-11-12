@@ -3,21 +3,21 @@ from dash import html
 import pandas as pd
 from pathlib import Path
 
+from src.utils.data_access import load_dataframe
+
 dash.register_page(
     __name__,
     path="/",
     name="Accueil",
 )
 
-DATA_PATH = Path("data/cleaned/airbnb_paris_clean.csv")
-
-# Sécurisé: si le fichier n'existe pas encore, on évite de crasher
-if DATA_PATH.exists():
-    df = pd.read_csv(DATA_PATH)
+try:
+    df = load_dataframe()
     n_listings = len(df)
     price_mean = int(df["price"].mean()) if "price" in df.columns else None
     n_hosts = df["host_id"].nunique() if "host_id" in df.columns else None
-else:
+    
+except Exception:
     df = None
     n_listings = price_mean = n_hosts = None
 
