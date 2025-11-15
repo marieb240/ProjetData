@@ -14,14 +14,43 @@ server = app.server  # utile si déploiement
 
 app.layout = html.Div(
     [
-        header,
-        navbar,
-        dash.page_container,  # ici Dash affichera le contenu des pages
-        footer,
+        # Sidebar (logo + menu)
+        html.Aside(
+            [
+                html.Div(
+                    [
+                        html.Div("Airbnb Paris", className="sidebar-logo-main"),
+                        html.Div("Data Dashboard", className="sidebar-logo-sub"),
+                    ],
+                    className="sidebar-logo-block",
+                ),
+                navbar,
+                html.Div(
+                    [
+                        html.P("Projet Data · ESIEE 2025", className="sidebar-meta"),
+                        html.P("Ghita Bensaleh et Marie Bouëtel", className="sidebar-meta-secondary"),
+                    ],
+                    className="sidebar-footer-block",
+                ),
+            ],
+            className="app-sidebar",
+        ),
+
+        # Zone principale (header + contenu des pages + footer)
+        html.Div(
+            [
+                header,
+                html.Main(
+                    dash.page_container,
+                    className="main-content",
+                ),
+                footer,
+            ],
+            className="app-main",
+        ),
     ],
     className="page-container",
 )
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
-

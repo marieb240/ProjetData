@@ -1,111 +1,273 @@
+/* -------- Reset léger & body -------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #eef2ff;
+    color: #111827;
+}
+
+/* -------- Layout global -------- */
+
 .page-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
+/* -------- Header -------- */
+
 .app-header {
-    padding: 24px 40px 8px;
-    border-bottom: 1px solid #eee;
+    padding: 20px 40px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .app-title {
     margin: 0;
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
+    letter-spacing: -0.03em;
 }
 
 .app-subtitle {
     margin: 4px 0 0;
-    color: #555;
+    font-size: 14px;
+    color: #6b7280;
 }
 
+/* -------- Navbar -------- */
+
 .app-navbar {
+    display: flex;
+    gap: 12px;
     padding: 10px 40px;
-    border-bottom: 1px solid #eee;
-    background-color: #fafafa;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .nav-link {
-    margin-right: 20px;
     text-decoration: none;
-    color: #0070c9;
-    font-weight: 500;
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: #4b5563;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .nav-link:hover {
-    text-decoration: underline;
+    background: #e5e7eb;
+    color: #111827;
 }
+
+/* -------- Contenu des pages -------- */
 
 .page-content {
-    flex: 1;
-    padding: 30px 40px 40px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 24px auto 32px;
+    padding: 24px 26px 28px;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
 }
 
+/* Titres & textes */
+
 .section-title {
-    margin: 0 0 8px;
-    font-size: 24px;
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 600;
 }
 
 .section-subtitle {
-    margin: 0 0 24px;
-    color: #555;
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: #6b7280;
 }
 
 .section-text {
-    margin-top: 24px;
-    max-width: 700px;
-    color: #444;
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.6;
 }
 
+/* -------- KPI cards -------- */
+
 .kpi-container {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    margin: 18px 0 8px;
 }
 
 .kpi-card {
-    padding: 14px 18px;
-    border-radius: 10px;
-    border: 1px solid #eee;
-    background-color: #fafafa;
-    min-width: 180px;
+    background: radial-gradient(circle at top left, #e0e7ff 0, #ffffff 45%, #f9fafb 100%);
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 30px rgba(148, 163, 184, 0.35);
 }
 
 .kpi-label {
-    font-size: 13px;
-    color: #666;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
 }
 
 .kpi-value {
-    font-size: 20px;
-    font-weight: 600;
     margin-top: 4px;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* -------- Grilles & blocs de graphiques -------- */
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 18px;
 }
 
 .chart-block {
-    margin-top: 24px;
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
 }
 
-.app-footer {
-    padding: 12px 40px 16px;
-    border-top: 1px solid #eee;
-    color: #777;
-    font-size: 13px;
+/* -------- Bloc d'analyse -------- */
 
 .analysis-block {
-    margin-top: 40px;
-    background-color: #f9f9f9;
-    padding: 20px;
-    border-radius: 10px;
+    margin-top: 26px;
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 18px 18px 20px;
+    border: 1px solid #e5e7eb;
 }
 
-.analysis-block .section-text {
-    font-size: 1.05rem;
-    line-height: 1.6;
-    color: #333;
+/* -------- Footer -------- */
+
+.app-footer {
+    margin-top: auto;
+    padding: 10px 0 14px;
+    text-align: center;
+    font-size: 12px;
+    color: #6b7280;
 }
 
+.footer-text {
+    margin: 0;
+}
+
+/* -------- Responsif -------- */
+
+@media (max-width: 768px) {
+    .app-header {
+        padding: 16px 18px 10px;
+    }
+
+    .app-navbar {
+        padding: 8px 18px;
+        flex-wrap: wrap;
+    }
+
+    .page-content {
+        margin: 16px auto 24px;
+        padding: 18px 16px 22px;
+        border-radius: 14px;
+    }
+}
+/* -------- Filtres de la page /more -------- */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+    margin-top: 10px;
+    margin-bottom: 14px;
+}
+
+.control-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+}
+
+.control-item-wide {
+    min-width: 260px;
+    flex: 1;
+}
+
+.control-item label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #4b5563;
+    margin-bottom: 4px;
+}
+
+.slider-value-label {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* -------- Layout 2 colonnes de la page /more -------- */
+
+.main-two-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 4px;
+}
+
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.details-panel {
+    height: 100%;
+}
+
+.summary-list {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.summary-line {
+    margin: 4px 0;
+}
+
+/* Responsif pour la page /more */
+@media (max-width: 900px) {
+    .main-two-cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .right-panel {
+        order: -1; /* le résumé passe au-dessus des graphiques sur mobile */
+    }
 }
