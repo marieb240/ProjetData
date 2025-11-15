@@ -1,4 +1,4 @@
-from dash import Dash, html
+from dash import Dash, html, dcc
 import dash
 
 from src.components.header import header
@@ -14,43 +14,28 @@ server = app.server  # utile si déploiement
 
 app.layout = html.Div(
     [
-        # Sidebar (logo + menu)
-        html.Aside(
+        # Mini-sidebar à gauche
+        html.Div(
             [
-                html.Div(
-                    [
-                        html.Div("Airbnb Paris", className="sidebar-logo-main"),
-                        html.Div("Data Dashboard", className="sidebar-logo-sub"),
-                    ],
-                    className="sidebar-logo-block",
-                ),
-                navbar,
-                html.Div(
-                    [
-                        html.P("Projet Data · ESIEE 2025", className="sidebar-meta"),
-                        html.P("Ghita Bensaleh et Marie Bouëtel", className="sidebar-meta-secondary"),
-                    ],
-                    className="sidebar-footer-block",
-                ),
+                dcc.Link("Données ", href="/", className="side-link"),
+                dcc.Link("Carte des Airbnbs", href="/more", className="side-link"),
             ],
-            className="app-sidebar",
+            className="side-navbar",
         ),
 
-        # Zone principale (header + contenu des pages + footer)
+        # Zone principale
         html.Div(
             [
                 header,
-                html.Main(
-                    dash.page_container,
-                    className="main-content",
-                ),
+                html.Main(dash.page_container, className="main-content"),
                 footer,
             ],
-            className="app-main",
-        ),
+            className="content-wrapper",
+        )
     ],
-    className="page-container",
+    className="page-layout",
 )
+
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)

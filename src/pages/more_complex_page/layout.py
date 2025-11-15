@@ -1,4 +1,5 @@
 import dash
+import numpy as np
 from dash import html, dcc, callback, Input, Output
 import plotly.express as px
 import pandas as pd
@@ -309,17 +310,47 @@ def update_detailed_view(arr_value, room_types, price_max_value):
     )
     fig_map.update_layout(margin=dict(l=0, r=0, t=40, b=0))
 
-    # -------- Histogramme --------
-    fig_hist = px.histogram(
-        data_frame=data,
-        x="price",
-        nbins=30,
-        title="Distribution des prix pour la sélection",
+    # -------- Histogramme  --------
+    price_bins = [0, 50, 100, 150, 200, 300, 500, np.inf]
+    price_labels = [
+        "≤ 50 €",
+        "50–100 €",
+        "100–150 €",
+        "150–200 €",
+        "200–300 €",
+        "300–500 €",
+        "> 500 €",
+    ]
+
+    data["price_range"] = pd.cut(
+        data["price"],
+        bins=price_bins,
+        labels=price_labels,
+        include_lowest=True,
+        right=False,
+    )
+
+    price_counts = (
+    data["price_range"]
+    .value_counts()
+    .reindex(price_labels, fill_value=0)
+    .rename("count")
+    .reset_index()
+    .rename(columns={"index": "price_range"})
+    )
+
+    fig_hist = px.bar(
+        price_counts,
+        x="price_range",
+        y="count",
+        title="Distribution des prix pour la sélection (par tranches)",
+        labels={
+            "price_range": "Tranche de prix",
+            "count": "Nombre d'annonces",
+        },
     )
     fig_hist.update_layout(
         margin=dict(l=0, r=0, t=40, b=0),
-        xaxis_title="Prix par nuit (€)",
-        yaxis_title="Nombre d'annonces",
     )
 
     # -------- Résumé textuel --------

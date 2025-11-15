@@ -1,4 +1,5 @@
 import dash
+import numpy as np
 from dash import html, dcc
 import plotly.express as px
 import pandas as pd
@@ -41,36 +42,82 @@ def _safe_int(x: float | int | None) -> str:
 if not df.empty:
     n_listings = _safe_int(len(df))
     price_mean = f"{df['price'].mean():.0f} €"
-    n_hosts = _safe_int(df["host_id"].nunique()) if "host_id" in df.columns else "–"
     n_districts = _safe_int(df["district"].nunique()) if "district" in df.columns else "–"
 else:
     n_listings = price_mean = n_hosts = n_districts = "–"
 
+# -------- Figures --------
+# Labels francisés pour les types de logements
+ROOM_TYPE_LABELS = {
+    "Entire place": "Logement entier",
+    "Entire home/apt": "Logement entier",
+    "Private room": "Chambre privée",
+    "Shared room": "Chambre partagée",
+    "Hotel room": "Chambre d’hôtel",
+}
+
 # -------- Figures statiques --------
-# Histogramme des prix
-fig_price_hist = px.histogram(
-    df,
-    x="price",
-    nbins=40,
-    title="Distribution des prix par nuit",
+# Histogramme des prix par tranches (plus lisible)
+price_bins = [0, 50, 100, 150, 200, 300, 500, np.inf]
+price_labels = [
+    "≤ 50 €",
+    "50–100 €",
+    "100–150 €",
+    "150–200 €",
+    "200–300 €",
+    "300–500 €",
+    "> 500 €",
+]
+
+df["price_range"] = pd.cut(
+    df["price"],
+    bins=price_bins,
+    labels=price_labels,
+    include_lowest=True,
+    right=False,
+)
+
+price_counts = (
+    df["price_range"]
+    .value_counts()
+    .reindex(price_labels, fill_value=0)   
+    .rename("count")                       
+    .reset_index()                         
+    .rename(columns={"index": "price_range"})
+)
+
+
+fig_price_hist = px.bar(
+    price_counts,
+    x="price_range",
+    y="count",
+    title="Distribution des prix par nuit .",
+    labels={
+        "price_range": "Prix par nuit (€)",
+        "count": "Nombre d'annonces",
+    },
 )
 fig_price_hist.update_layout(
     margin=dict(l=0, r=0, t=40, b=0),
-    xaxis_title="Prix par nuit (€)",
-    yaxis_title="Nombre d'annonces",
 )
+
 
 # Répartition des types de logements
 if "room_type" in df.columns and not df.empty:
+    df["room_type_fr"] = df["room_type"].map(ROOM_TYPE_LABELS).fillna(df["room_type"])
+
     fig_room_type = px.pie(
         df,
-        names="room_type",
-        title="Répartition des types de logements",
+        names="room_type_fr",
+        title="Répartition des types de logements (en %)",
         hole=0.45,
     )
+    fig_room_type.update_traces(textposition="inside", textinfo="percent+label")
     fig_room_type.update_layout(margin=dict(l=0, r=0, t=40, b=0))
 else:
-    fig_room_type = px.pie(title="Répartition des types de logements (données manquantes)")
+    fig_room_type = px.pie(
+        title="Répartition des types de logements (données manquantes)"
+    )
 
 # Top 5 arrondissements par prix moyen
 if "district" in df.columns and not df.empty:
@@ -129,10 +176,19 @@ def kpi_block(label: str, value: str) -> html.Div:
 # -------- Layout de la page --------
 layout = html.Div(
     [
-        html.H2("Vue d'ensemble — Airbnb à Paris", className="section-title"),
+        html.H2("Vue d'ensemble", className="section-title"),
         html.P(
-            "Synthèse des annonces Airbnb à Paris : volume, niveaux de prix et répartition des logements.",
+            "Synthèse des annonces Airbnb de Paris : volume, niveaux de prix et répartition des logements.",
             className="section-subtitle",
+        ),
+        html.P(
+            "Le jeu de données utilisé correspond aux annonces Airbnb actives à Paris. "
+            "Chaque ligne du fichier airbnb_listings.csv représente une annonce, avec des informations sur "
+            "le prix par nuit, le type de logement (logement entier, chambre privée, etc.), l’arrondissement, "
+            "le nombre de chambre et la note moyenne laissée par les voyageurs. "
+            "Après un nettoyage des données et la suppression des valeurs extrêmes, "
+            "plus de 60 000 annonces sont conservées pour construire les graphiques ci-dessous.",
+            className="section-text",
         ),
 
         # KPIs principaux
@@ -140,13 +196,13 @@ layout = html.Div(
             [
                 kpi_block("Nombre d’annonces", n_listings),
                 kpi_block("Prix moyen par nuit", price_mean),
-                kpi_block("Nombre d’hôtes uniques", n_hosts),
                 kpi_block("Arrondissements couverts", n_districts),
             ],
             className="kpi-container",
         ),
 
         # Ligne 1 : histogramme + donut
+                # Ligne 1 : histogramme + donut
         html.Div(
             [
                 html.Div(
@@ -171,7 +227,24 @@ layout = html.Div(
             className="grid-2",
         ),
 
-        # Ligne 2 : top arrondissements + boxplot prix/quartier
+        # Texte de transition / explication des graphes du bas
+        html.Div(
+            [
+                html.P(
+                    "Les deux graphiques suivants détaillent la dimension géographique des prix.\n\n"
+                    "À gauche, le bar chart présente les cinq arrondissements où le prix moyen par nuit est le plus élevé : "
+                    "il permet d’identifier rapidement les zones les plus chères de Paris.\n\n "
+                    "À droite, le boxplot montre la distribution des prix pour les dix arrondissements les plus représentés : "
+                    "chaque boîte résume les prix typiques (médiane et dispersion), tandis que les points au-dessus "
+                    "des moustaches correspondent aux annonces les plus atypiques ou les plus chères.",
+                    className="section-text",
+                    style={"whiteSpace": "pre-line"},
+                ),
+            ],
+            className="analysis-block",
+        ),
+
+        # Ligne 2 : top arrondissements + boxplot
         html.Div(
             [
                 html.Div(
@@ -196,7 +269,7 @@ layout = html.Div(
             className="grid-2",
         ),
 
-        # Bloc d'analyse textuelle
+        # Bloc d'analyse textuelle global
         html.Div(
             [
                 html.P(
