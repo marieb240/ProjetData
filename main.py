@@ -4,6 +4,10 @@ import dash
 from src.components.header import header
 from src.components.navbar import navbar
 from src.components.footer import footer
+from src.utils.data_access import ensure_data_ready
+
+# ensure that data is ready before starting the app
+ensure_data_ready()
 
 app = Dash(__name__, use_pages=True, pages_folder="src/pages")
 server = app.server  # utile si déploiement
@@ -19,5 +23,5 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
 
