@@ -3,7 +3,7 @@ from dash import html, dcc, callback, Input, Output
 import plotly.express as px
 import pandas as pd
 
-# 🔌 on branche la page sur ton pipeline (DB ou CSV clean)
+# 🔌 pipeline (DB ou CSV clean)
 from src.utils.data_access import load_dataframe
 
 dash.register_page(
@@ -44,13 +44,18 @@ if not df.empty and "room_type" in df.columns:
         title="Répartition par type de logement",
     )
 
-# ---------- Préparation des options d’arrondissement (district) ----------
+# ---------- Helpers / options d’arrondissement ----------
 def _district_key(v: str) -> int:
-    # transforme "1er" -> 1, "14e" -> 14 pour trier 1→20
+    # "1er" -> 1, "14e" -> 14 (tri 1→20)
     try:
         return int("".join(ch for ch in str(v) if ch.isdigit()))
     except Exception:
         return 999
+
+def arrondissement_label(v: str | None) -> str:
+    if not v or v == "__ALL__":
+        return "Paris (tous arrondissements)"
+    return f"{v} arrondissement"
 
 arr_options = [{"label": "Tous Paris", "value": "__ALL__"}]
 if "district" in df.columns:
@@ -63,6 +68,14 @@ if "district" in df.columns:
     )
     uniq = sorted(uniq, key=_district_key)
     arr_options += [{"label": lab, "value": lab} for lab in uniq]
+
+# -- bornes propres pour le filtre de prix (5e-95e percentiles)
+if not df.empty and "price" in df.columns:
+    p05 = float(df["price"].quantile(0.05))
+    p95 = float(df["price"].quantile(0.95))
+    PRICE_MIN, PRICE_MAX = int(p05), int(p95)
+else:
+    PRICE_MIN, PRICE_MAX = 20, 500  # fallback
 
 # ---------- Layout ----------
 layout = html.Div(
@@ -134,7 +147,7 @@ layout = html.Div(
                                 html.Label("Arrondissement"),
                                 dcc.Dropdown(
                                     id="arr-select",
-                                    options=arr_options, # type: ignore[arg-type]
+                                    options=arr_options,  # type: ignore[arg-type]  (Pylance)
                                     value="__ALL__",
                                     clearable=False,
                                     placeholder="Choisir un arrondissement",
@@ -147,11 +160,43 @@ layout = html.Div(
                     className="controls",
                     style={"marginBottom": "12px"},
                 ),
+
+                # Toggle points individuels
+                dcc.Checklist(
+                    id="show-points",
+                    options=[{"label": "Afficher les points individuels", "value": "POINTS"}],
+                    value=[],  # vide = heatmap par défaut
+                    inline=True,
+                    style={"marginBottom": "6px"},
+                ),
+
+                # Filtre de prix (tranche)
+                dcc.RangeSlider(
+                    id="price-range",
+                    min=PRICE_MIN,
+                    max=PRICE_MAX,
+                    step=5,
+                    value=[PRICE_MIN, PRICE_MAX],
+                    tooltip={"placement": "bottom", "always_visible": False},
+                    marks={
+                        PRICE_MIN: f"{PRICE_MIN}€",
+                        (PRICE_MIN + PRICE_MAX)//2: f"{(PRICE_MIN + PRICE_MAX)//2}€",
+                        PRICE_MAX: f"{PRICE_MAX}€",
+                    },
+                    allowCross=False,
+                    pushable=10,
+                ),
+
                 dcc.Graph(id="map-graph", figure={}),
                 html.P(
                     "Plus la couleur est claire, plus la densité d'annonces Airbnb est élevée.",
                     className="section-text",
                     style={"fontStyle": "italic", "textAlign": "center", "marginTop": "10px", "color": "#555"},
+                ),
+                html.P(
+                    id="price-help",
+                    className="section-text",
+                    style={"fontStyle": "italic", "textAlign": "left", "marginTop": "6px", "color": "#555"},
                 ),
             ],
             className="chart-block",
@@ -194,56 +239,95 @@ layout = html.Div(
     className="page-content",
 )
 
-# ---------- Callback : met à jour la heatmap ----------
+# ---------- Callback : mise à jour de la carte ----------
 @callback(
     Output("map-graph", "figure"),
     Output("arr-select-wrapper", "style"),
+    Output("price-help", "children"),
     Input("view-scope", "value"),
     Input("arr-select", "value"),
+    Input("price-range", "value"),
+    Input("show-points", "value"),
 )
-def update_heatmap(scope, selected_arr):
+def update_map(scope, selected_arr, price_range, show_points_values):
     data = df.copy()
 
-    # Filtres de base (cohérents avec ta version statique)
+    # bornes prix sélectionnées
+    if price_range and len(price_range) == 2:
+        pmin, pmax = price_range
+    else:
+        pmin, pmax = PRICE_MIN, PRICE_MAX
+
+    # Filtres de base
     if not data.empty:
-        if "price" in data.columns:
-            data = data[data["price"] < 500]
         for c in ("latitude", "longitude"):
             if c in data.columns:
                 data = data[data[c].notna()]
+        if "price" in data.columns:
+            data = data[(data["price"] >= pmin) & (data["price"] <= pmax)]
 
-    # Affichage/masquage du Dropdown
+    # Montrer/masquer le dropdown
     show_arr = {"display": "none"} if scope == "PARIS" else {"marginTop": "8px"}
 
     # Filtrage par arrondissement
     if scope == "ARR" and selected_arr and selected_arr != "__ALL__" and "district" in data.columns:
         data = data[data["district"].astype(str) == str(selected_arr)]
 
-    # Échantillonnage pour éviter une tache uniforme
-    if len(data) > 3000:
-        data = data.sample(3000, random_state=42)
+    # Échantillonnage léger pour lisibilité
+    if len(data) > 5000:
+        data = data.sample(5000, random_state=42)
 
-    # Si pas de données → figure vide informative
+    # Texte d’aide dynamique (prix + nb points)
+    help_text = f"Tranche de prix : {int(pmin)}–{int(pmax)} € · Annonces affichées : {len(data)}."
+
+    # Pas de données → figure vide
     if data.empty or "latitude" not in data.columns or "longitude" not in data.columns:
         fig = px.scatter_mapbox(lat=[], lon=[])
         fig.update_layout(
             mapbox_style="open-street-map",
             margin=dict(l=0, r=0, t=0, b=0),
-            annotations=[dict(text="Données indisponibles pour la carte", showarrow=False)]
+            annotations=[dict(text="Aucune annonce dans cette tranche de prix.", showarrow=False)]
         )
-        return fig, show_arr
+        return fig, show_arr, help_text
 
-    # Heatmap
+    # Titre dynamique
+    title_base = (
+        "Annonces Airbnb à Paris"
+        if scope == "PARIS" or selected_arr in (None, "__ALL__")
+        else f"Annonces — {arrondissement_label(selected_arr)}"
+    )
+    title = f"{title_base} · {int(pmin)}–{int(pmax)} €"
+
+    # Points ou heatmap ?
+    show_points = "POINTS" in (show_points_values or [])
+
+    if show_points:
+        # Points plus fins et transparents
+        fig = px.scatter_mapbox(
+            data_frame=data,
+            lat="latitude",
+            lon="longitude",
+            hover_name="district" if "district" in data.columns else None,
+            center={"lat": 48.8566, "lon": 2.3522},
+            zoom=10,
+            opacity=0.80,
+            title=title,
+        )
+        # taille des points ↓
+        fig.update_traces(marker={"size": 4})
+        fig.update_layout(mapbox_style="open-street-map", margin=dict(l=0, r=0, t=40, b=0))
+        return fig, show_arr, help_text
+
+    # Heatmap (densité moins épaisse)
     fig = px.density_mapbox(
         data_frame=data,
         lat="latitude",
         lon="longitude",
-        radius=2.5,  # ajuste 2–15 selon le rendu voulu
+        radius=8,  # rayon plus fin qu'avant (8 recommandé)
         center={"lat": 48.8566, "lon": 2.3522},
         zoom=10,
         mapbox_style="open-street-map",
-        title="Densité des annonces Airbnb à Paris" if scope == "PARIS"
-              else f"Densité des annonces — {selected_arr}",
+        title=f"Densité — {title}",
     )
     fig.update_layout(margin=dict(l=0, r=0, t=40, b=0))
-    return fig, show_arr
+    return fig, show_arr, help_text
