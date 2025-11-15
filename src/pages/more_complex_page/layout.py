@@ -1,9 +1,12 @@
 import dash
+import numpy as np
 from dash import html, dcc, callback, Input, Output
 import plotly.express as px
 import pandas as pd
+import plotly.graph_objects as go
+from typing import Any
 
-# 🔌 pipeline (DB ou CSV clean)
+
 from src.utils.data_access import load_dataframe
 
 dash.register_page(
@@ -14,320 +17,382 @@ dash.register_page(
 
 # ---------- Chargement des données ----------
 try:
-    df = load_dataframe()
+    df_base = load_dataframe()
 except Exception:
-    # DataFrame vide avec les colonnes nécessaires, pour éviter les crashs
-    df = pd.DataFrame(columns=["price", "room_type", "latitude", "longitude", "district"])
+    df_base = pd.DataFrame()
 
-# ---------- Graphique 1 : Histogramme des prix (<500€ pour lisibilité) ----------
-fig_price_dist = (
-    px.histogram(
-        df[df["price"] < 500],
-        x="price",
-        nbins=60,
-        title="Distribution des prix par nuit (€)",
-    )
-    if not df.empty and "price" in df.columns
-    else None
-)
+if df_base is None:
+    df_base = pd.DataFrame()
 
-# ---------- Graphique 2 : Répartition par type de logement ----------
-fig_room_type = None
-if not df.empty and "room_type" in df.columns:
-    rt_counts = df["room_type"].value_counts().reset_index()
-    rt_counts.columns = ["room_type", "count"]
-    fig_room_type = px.bar(
-        rt_counts,
-        x="room_type",
-        y="count",
-        labels={"room_type": "Type de logement", "count": "Nombre d’annonces"},
-        title="Répartition par type de logement",
-    )
+# On garde uniquement les colonnes utiles si elles existent
+expected_cols = [
+    "price",
+    "room_type",
+    "latitude",
+    "longitude",
+    "district",
+    "review_scores_rating",
+]
+for col in expected_cols:
+    if col not in df_base.columns:
+        df_base[col] = pd.NA
 
-# ---------- Helpers / options d’arrondissement ----------
-def _district_key(v: str) -> int:
-    # "1er" -> 1, "14e" -> 14 (tri 1→20)
+df_base = df_base.copy()
+df_base = df_base.dropna(subset=["latitude", "longitude"])
+
+# Nettoyage léger des prix pour les graphes
+if not df_base.empty:
+    df_base = df_base[df_base["price"] > 0]
+    q01 = df_base["price"].quantile(0.01)
+    q99 = df_base["price"].quantile(0.99)
+    df_base = df_base[df_base["price"].between(q01, q99)]
+
+# ---------- Options des filtres ----------
+
+# Arrondissements
+def _district_sort_key(x: str) -> tuple[int, str]:
+    """
+    Clé de tri pour les arrondissements :
+    - d'abord ceux qui sont numériques (01, 02, ..., 20)
+    - ensuite les autres valeurs éventuelles, triées alpha.
+    """
+    x_str = str(x)
     try:
-        return int("".join(ch for ch in str(v) if ch.isdigit()))
+        # on met les arrondissements numériques en premier, formatés sur 2 chiffres
+        return (0, f"{int(x_str):02d}")
     except Exception:
-        return 999
+        # tout le reste passe après, trié alphabétiquement
+        return (1, x_str)
 
-def arrondissement_label(v: str | None) -> str:
-    if not v or v == "__ALL__":
-        return "Paris (tous arrondissements)"
-    return f"{v} arrondissement"
+# Liste des arrondissements
+arr_options: list[dict[str, Any]] = [
+    {"label": "Tous les arrondissements", "value": "__ALL__"},
+]
 
-arr_options = [{"label": "Tous Paris", "value": "__ALL__"}]
-if "district" in df.columns:
+if "district" in df_base.columns:
     uniq = (
-        df["district"]
+        df_base["district"]
         .dropna()
         .astype(str)
         .unique()
         .tolist()
     )
-    uniq = sorted(uniq, key=_district_key)
-    arr_options += [{"label": lab, "value": lab} for lab in uniq]
+    uniq = sorted(uniq, key=_district_sort_key)
+    arr_options.extend(
+        {"label": v, "value": v} for v in uniq
+    )
 
-# -- bornes propres pour le filtre de prix (5e-95e percentiles)
-if not df.empty and "price" in df.columns:
-    p05 = float(df["price"].quantile(0.05))
-    p95 = float(df["price"].quantile(0.95))
-    PRICE_MIN, PRICE_MAX = int(p05), int(p95)
+# Types de logements
+room_type_options: list[dict[str, Any]]
+if "room_type" in df_base.columns:
+    uniq_rt = (
+        df_base["room_type"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+    room_type_options = [{"label": rt, "value": rt} for rt in sorted(uniq_rt)]
 else:
-    PRICE_MIN, PRICE_MAX = 20, 500  # fallback
+    room_type_options = []
 
-# ---------- Layout ----------
+# Plage de prix
+if not df_base.empty:
+    price_min = int(df_base["price"].quantile(0.05))
+    price_max = int(df_base["price"].quantile(0.95))
+else:
+    price_min, price_max = 0, 500
+
+# ---------- Aides pour graphes vides ----------
+
+
+def _empty_map_figure() -> go.Figure:
+    fig = px.scatter_mapbox(
+        lat=[],
+        lon=[],
+        zoom=10,
+        center={"lat": 48.8566, "lon": 2.3522},
+    )
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin=dict(l=0, r=0, t=40, b=0),
+        title="Carte des annonces (aucune donnée à afficher)",
+    )
+    return fig
+
+
+def _empty_hist_figure() -> go.Figure:
+    fig = px.histogram(x=[])
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=40, b=0),
+        xaxis_title="Prix par nuit (€)",
+        yaxis_title="Nombre d'annonces",
+        title="Distribution des prix (aucune donnée à afficher)",
+    )
+    return fig
+
+
+
+# ---------- Layout de la page ----------
+
 layout = html.Div(
     [
-        # Titre principal
-        html.H2("Analyse détaillée", className="section-title"),
+        html.H2("Analyse détaillée des annonces", className="section-title"),
         html.P(
-            "Visualisation des distributions de prix, des types de logements et de la répartition géographique des annonces Airbnb à Paris.",
+            "Explorez les annonces Airbnb à Paris par arrondissement, niveau de prix et type de logement.",
             className="section-subtitle",
         ),
 
-        # 1) Distribution des prix
-        html.H3("Distribution des prix", className="section-subtitle"),
-        html.Div(
-            [
-                dcc.Graph(figure=fig_price_dist)
-                if fig_price_dist
-                else html.P(
-                    "Données indisponibles pour la distribution des prix.",
-                    className="section-text",
-                ),
-            ],
-            className="chart-block",
-        ),
-        html.P(
-            "La majorité des logements se situent entre 80 € et 200 € par nuit, "
-            "traduisant une offre de milieu de gamme destinée à une clientèle touristique. "
-            "Les annonces au-delà de 500 € correspondent à des biens de luxe situés dans les quartiers les plus prisés de Paris.",
-            className="section-text",
-        ),
-
-        # 2) Types de logements
-        html.H3("Types de logements", className="section-subtitle"),
-        html.Div(
-            [
-                dcc.Graph(figure=fig_room_type)
-                if fig_room_type
-                else html.P(
-                    "Données indisponibles pour les types de logements.",
-                    className="section-text",
-                ),
-            ],
-            className="chart-block",
-        ),
-        html.P(
-            "Le marché parisien est dominé par les logements entiers, tandis que les chambres privées occupent une part secondaire. "
-            "Les offres de chambres partagées ou d’hôtel restent minoritaires, illustrant une préférence marquée des hôtes et des voyageurs pour des hébergements indépendants.",
-            className="section-text",
-        ),
-
-        # 3) Répartition géographique (carte dynamique)
-        html.H4("Répartition géographique", className="section-subtitle"),
+        # Filtres
         html.Div(
             [
                 html.Div(
                     [
-                        html.Label("Vue"),
-                        dcc.RadioItems(
-                            id="view-scope",
-                            options=[
-                                {"label": "Paris (tous arrondissements)", "value": "PARIS"},
-                                {"label": "Par arrondissement", "value": "ARR"},
-                            ],
-                            value="PARIS",
+                        html.Label("Arrondissement"),
+                        dcc.Dropdown(
+                            id="more-arrondissement",
+                            options=arr_options, #type: ignore
+                            value="__ALL__",
+                            clearable=False,
+                        ),
+                    ],
+                    className="control-item",
+                ),
+                html.Div(
+                    [
+                        html.Label("Types de logements"),
+                        dcc.Checklist(
+                            id="more-room-type",
+                            options=room_type_options, #type: ignore
+                            value=[opt["value"] for opt in room_type_options],
                             inline=True,
+                        ),
+                    ],
+                    className="control-item",
+                ),
+                html.Div(
+                    [
+                        html.Label("Prix maximum par nuit"),
+                        dcc.Slider(
+                            id="more-price-max",
+                            min=price_min,
+                            max=price_max,
+                            step=5,
+                            value=price_max,
+                            tooltip={"placement": "bottom", "always_visible": False},
+                        ),
+                        html.Div(
+                            id="more-price-max-label",
+                            className="slider-value-label",
+                        ),
+                    ],
+                    className="control-item control-item-wide",
+                ),
+            ],
+            className="controls",
+        ),
+
+        # Deux colonnes : gauche = cartes, droite = résumé
+        html.Div(
+            [
+                # Colonne gauche : carte + histogramme
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                dcc.Graph(
+                                    id="more-map",
+                                    figure=_empty_map_figure(),
+                                    config={"displayModeBar": False},
+                                ),
+                            ],
+                            className="chart-block",
                         ),
                         html.Div(
                             [
-                                html.Label("Arrondissement"),
-                                dcc.Dropdown(
-                                    id="arr-select",
-                                    options=arr_options,  # type: ignore[arg-type]  (Pylance)
-                                    value="__ALL__",
-                                    clearable=False,
-                                    placeholder="Choisir un arrondissement",
+                                dcc.Graph(
+                                    id="more-hist",
+                                    figure=_empty_hist_figure(),
+                                    config={"displayModeBar": False},
                                 ),
                             ],
-                            id="arr-select-wrapper",
-                            style={"display": "none"},  # masqué par défaut (vue PARIS)
+                            className="chart-block",
                         ),
                     ],
-                    className="controls",
-                    style={"marginBottom": "12px"},
+                    className="left-panel",
                 ),
 
-                # Toggle points individuels
-                dcc.Checklist(
-                    id="show-points",
-                    options=[{"label": "Afficher les points individuels", "value": "POINTS"}],
-                    value=[],  # vide = heatmap par défaut
-                    inline=True,
-                    style={"marginBottom": "6px"},
-                ),
-
-                # Filtre de prix (tranche)
-                dcc.RangeSlider(
-                    id="price-range",
-                    min=PRICE_MIN,
-                    max=PRICE_MAX,
-                    step=5,
-                    value=[PRICE_MIN, PRICE_MAX],
-                    tooltip={"placement": "bottom", "always_visible": False},
-                    marks={
-                        PRICE_MIN: f"{PRICE_MIN}€",
-                        (PRICE_MIN + PRICE_MAX)//2: f"{(PRICE_MIN + PRICE_MAX)//2}€",
-                        PRICE_MAX: f"{PRICE_MAX}€",
-                    },
-                    allowCross=False,
-                    pushable=10,
-                ),
-
-                dcc.Graph(id="map-graph", figure={}),
-                html.P(
-                    "Plus la couleur est claire, plus la densité d'annonces Airbnb est élevée.",
-                    className="section-text",
-                    style={"fontStyle": "italic", "textAlign": "center", "marginTop": "10px", "color": "#555"},
-                ),
-                html.P(
-                    id="price-help",
-                    className="section-text",
-                    style={"fontStyle": "italic", "textAlign": "left", "marginTop": "6px", "color": "#555"},
+                # Colonne droite : résumé et détails
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.H3(
+                                    "Résumé de la sélection",
+                                    className="section-subtitle",
+                                ),
+                                html.Div(
+                                    id="more-summary",
+                                    className="section-text",
+                                ),
+                            ],
+                            className="analysis-block details-panel",
+                        ),
+                    ],
+                    className="right-panel",
                 ),
             ],
-            className="chart-block",
-        ),
-
-        # Analyse de la répartition géographique
-        html.Div(
-            [
-                html.H4("Analyse de la répartition géographique", className="section-subtitle"),
-                html.P(
-                    "La concentration des annonces Airbnb est nettement plus forte dans les arrondissements centraux "
-                    "de Paris, notamment autour du Marais, du Quartier Latin et de Montmartre. "
-                    "Ces zones, très touristiques, attirent une forte demande en hébergement de courte durée. "
-                    "À l’inverse, les arrondissements périphériques présentent une densité beaucoup plus faible, "
-                    "ce qui reflète leur caractère davantage résidentiel.",
-                    className="section-text",
-                ),
-            ],
-            className="analysis-block",
-        ),
-
-        # 4) Analyse globale
-        html.Div(
-            [
-                html.H3("Analyse globale des visualisations", className="section-subtitle"),
-                html.P(
-                    "L’ensemble des visualisations met en lumière un marché Airbnb fortement concentré dans le centre de Paris. "
-                    "Les logements entiers dominent largement l’offre, confirmant une utilisation d’Airbnb orientée vers la location touristique complète. "
-                    "Les prix se situent majoritairement entre 80 € et 200 € par nuit, "
-                    "ce qui traduit une offre de milieu de gamme accessible à une clientèle internationale. "
-                    "La carte de densité illustre cette pression locative accrue dans les arrondissements centraux, "
-                    "alors que la périphérie conserve un profil plus résidentiel et moins tourné vers la location de courte durée. "
-                    "Ces observations soulignent la forte attractivité économique et touristique du cœur de la capitale.",
-                    className="section-text",
-                ),
-            ],
-            className="analysis-block",
+            className="main-two-cols",
         ),
     ],
     className="page-content",
 )
 
-# ---------- Callback : mise à jour de la carte ----------
+
+# ---------- Callback d'actualisation ----------
+
+
 @callback(
-    Output("map-graph", "figure"),
-    Output("arr-select-wrapper", "style"),
-    Output("price-help", "children"),
-    Input("view-scope", "value"),
-    Input("arr-select", "value"),
-    Input("price-range", "value"),
-    Input("show-points", "value"),
+    Output("more-map", "figure"),
+    Output("more-hist", "figure"),
+    Output("more-summary", "children"),
+    Output("more-price-max-label", "children"),
+    Input("more-arrondissement", "value"),
+    Input("more-room-type", "value"),
+    Input("more-price-max", "value"),
 )
-def update_map(scope, selected_arr, price_range, show_points_values):
-    data = df.copy()
-
-    # bornes prix sélectionnées
-    if price_range and len(price_range) == 2:
-        pmin, pmax = price_range
-    else:
-        pmin, pmax = PRICE_MIN, PRICE_MAX
-
-    # Filtres de base
-    if not data.empty:
-        for c in ("latitude", "longitude"):
-            if c in data.columns:
-                data = data[data[c].notna()]
-        if "price" in data.columns:
-            data = data[(data["price"] >= pmin) & (data["price"] <= pmax)]
-
-    # Montrer/masquer le dropdown
-    show_arr = {"display": "none"} if scope == "PARIS" else {"marginTop": "8px"}
-
-    # Filtrage par arrondissement
-    if scope == "ARR" and selected_arr and selected_arr != "__ALL__" and "district" in data.columns:
-        data = data[data["district"].astype(str) == str(selected_arr)]
-
-    # Échantillonnage léger pour lisibilité
-    if len(data) > 5000:
-        data = data.sample(5000, random_state=42)
-
-    # Texte d’aide dynamique (prix + nb points)
-    help_text = f"Tranche de prix : {int(pmin)}–{int(pmax)} € · Annonces affichées : {len(data)}."
-
-    # Pas de données → figure vide
-    if data.empty or "latitude" not in data.columns or "longitude" not in data.columns:
-        fig = px.scatter_mapbox(lat=[], lon=[])
-        fig.update_layout(
-            mapbox_style="open-street-map",
-            margin=dict(l=0, r=0, t=0, b=0),
-            annotations=[dict(text="Aucune annonce dans cette tranche de prix.", showarrow=False)]
+def update_detailed_view(arr_value, room_types, price_max_value):
+    # Sécurité si pas de données
+    if df_base.empty:
+        return (
+            _empty_map_figure(),
+            _empty_hist_figure(),
+            "Aucune donnée disponible.",
+            "",
         )
-        return fig, show_arr, help_text
 
-    # Titre dynamique
-    title_base = (
-        "Annonces Airbnb à Paris"
-        if scope == "PARIS" or selected_arr in (None, "__ALL__")
-        else f"Annonces — {arrondissement_label(selected_arr)}"
-    )
-    title = f"{title_base} · {int(pmin)}–{int(pmax)} €"
+    data = df_base.copy()
 
-    # Points ou heatmap ?
-    show_points = "POINTS" in (show_points_values or [])
+    # Filtre arrondissement
+    if arr_value and arr_value != "__ALL__":
+        data = data[data["district"].astype(str) == str(arr_value)]
 
-    if show_points:
-        # Points plus fins et transparents
-        fig = px.scatter_mapbox(
-            data_frame=data,
-            lat="latitude",
-            lon="longitude",
-            hover_name="district" if "district" in data.columns else None,
-            center={"lat": 48.8566, "lon": 2.3522},
-            zoom=10,
-            opacity=0.80,
-            title=title,
+    # Filtre types de logements
+    if room_types:
+        data = data[data["room_type"].isin(room_types)]
+
+    # Filtre prix max
+    if price_max_value is not None:
+        data = data[data["price"] <= price_max_value]
+
+    # Texte sous le slider
+    slider_label = f"Prix maximum sélectionné : {int(price_max_value)} €" if price_max_value else ""
+
+    if data.empty:
+        summary_children = (
+            "Aucune annonce ne correspond à cette sélection de filtres. "
+            "Essayez d'élargir la plage de prix ou d'inclure plus de types de logements."
         )
-        # taille des points ↓
-        fig.update_traces(marker={"size": 4})
-        fig.update_layout(mapbox_style="open-street-map", margin=dict(l=0, r=0, t=40, b=0))
-        return fig, show_arr, help_text
+        return _empty_map_figure(), _empty_hist_figure(), summary_children, slider_label
 
-    # Heatmap (densité moins épaisse)
-    fig = px.density_mapbox(
+    # -------- Carte --------
+    fig_map = px.scatter_mapbox(
         data_frame=data,
         lat="latitude",
         lon="longitude",
-        radius=8,  # rayon plus fin qu'avant (8 recommandé)
-        center={"lat": 48.8566, "lon": 2.3522},
+        color="price",
+        hover_name="district",
+        hover_data={"price": True, "room_type": True},
         zoom=10,
+        center={"lat": 48.8566, "lon": 2.3522},
         mapbox_style="open-street-map",
-        title=f"Densité — {title}",
+        title="Localisation des annonces filtrées",
     )
-    fig.update_layout(margin=dict(l=0, r=0, t=40, b=0))
-    return fig, show_arr, help_text
+    fig_map.update_layout(margin=dict(l=0, r=0, t=40, b=0))
+
+    # -------- Histogramme  --------
+    price_bins = [0, 50, 100, 150, 200, 300, 500, np.inf]
+    price_labels = [
+        "≤ 50 €",
+        "50–100 €",
+        "100–150 €",
+        "150–200 €",
+        "200–300 €",
+        "300–500 €",
+        "> 500 €",
+    ]
+
+    data["price_range"] = pd.cut(
+        data["price"],
+        bins=price_bins,
+        labels=price_labels,
+        include_lowest=True,
+        right=False,
+    )
+
+    price_counts = (
+    data["price_range"]
+    .value_counts()
+    .reindex(price_labels, fill_value=0)
+    .rename("count")
+    .reset_index()
+    .rename(columns={"index": "price_range"})
+    )
+
+    fig_hist = px.bar(
+        price_counts,
+        x="price_range",
+        y="count",
+        title="Distribution des prix pour la sélection (par tranches)",
+        labels={
+            "price_range": "Tranche de prix",
+            "count": "Nombre d'annonces",
+        },
+    )
+    fig_hist.update_layout(
+        margin=dict(l=0, r=0, t=40, b=0),
+    )
+
+    # -------- Résumé textuel --------
+    n_listings = len(data)
+    price_mean = data["price"].mean()
+    price_median = data["price"].median()
+    rating_mean = (
+        data["review_scores_rating"].mean() if "review_scores_rating" in data.columns else None
+    )
+
+    parts = [
+        html.P(
+            f"La sélection actuelle contient {n_listings} annonces Airbnb.",
+            className="summary-line",
+        ),
+        html.Ul(
+            [
+                html.Li(f"Prix moyen : {price_mean:.0f} € par nuit"),
+                html.Li(f"Prix médian : {price_median:.0f} € par nuit"),
+            ]
+            + (
+                [html.Li(f"Note moyenne des voyageurs : {rating_mean:.1f}/100")]
+                if rating_mean is not None and not pd.isna(rating_mean)
+                else []
+            ),
+            className="summary-list",
+        ),
+    ]
+
+    if arr_value and arr_value != "__ALL__":
+        parts.append(
+            html.P(
+                f"Ces chiffres concernent uniquement l’arrondissement {arr_value}.",
+                className="summary-line",
+            )
+        )
+    else:
+        parts.append(
+            html.P(
+                "Ces chiffres prennent en compte l’ensemble des arrondissements de Paris.",
+                className="summary-line",
+            )
+        )
+
+    return fig_map, fig_hist, parts, slider_label
