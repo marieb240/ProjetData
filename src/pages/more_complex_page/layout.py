@@ -56,13 +56,13 @@ def _district_sort_key(x: str) -> tuple[int, str]:
     - d'abord ceux qui sont numériques (01, 02, ..., 20)
     - ensuite les autres valeurs éventuelles, triées alpha.
     """
-    x_str = str(x)
+    x_str = str(x).lower().replace("er", "").replace("e", "")
     try:
         # on met les arrondissements numériques en premier, formatés sur 2 chiffres
-        return (0, f"{int(x_str):02d}")
-    except Exception:
+        return (0, int(x_str))
+    except ValueError:
         # tout le reste passe après, trié alphabétiquement
-        return (1, x_str)
+        return (1, 999)
 
 # Liste des arrondissements
 arr_options: list[dict[str, Any]] = [
