@@ -14,7 +14,7 @@ dash.register_page(
 
 # -------- Chargement des données --------
 try:
-    # plus tard, si tu gères plusieurs villes :
+    # plus tard, si on veut gèrer plusieurs villes :
     # df = load_dataframe(city="paris")
     df = load_dataframe()
 except Exception:
@@ -46,18 +46,8 @@ if not df.empty:
 else:
     n_listings = price_mean = n_hosts = n_districts = "–"
 
-# -------- Figures --------
-# Labels francisés pour les types de logements
-ROOM_TYPE_LABELS = {
-    "Entire place": "Logement entier",
-    "Entire home/apt": "Logement entier",
-    "Private room": "Chambre privée",
-    "Shared room": "Chambre partagée",
-    "Hotel room": "Chambre d’hôtel",
-}
-
 # -------- Figures statiques --------
-# Histogramme des prix par tranches (plus lisible)
+# Histogramme des prix par tranches
 price_bins = [0, 50, 100, 150, 200, 300, 500, np.inf]
 price_labels = [
     "≤ 50 €",
@@ -91,7 +81,7 @@ fig_price_hist = px.bar(
     price_counts,
     x="price_range",
     y="count",
-    title="Distribution des prix par nuit .",
+    title="Distribution des prix par nuit ",
     labels={
         "price_range": "Prix par nuit (€)",
         "count": "Nombre d'annonces",
@@ -104,16 +94,14 @@ fig_price_hist.update_layout(
 
 # Répartition des types de logements
 if "room_type" in df.columns and not df.empty:
-    df["room_type_fr"] = df["room_type"].map(ROOM_TYPE_LABELS).fillna(df["room_type"])
-
     fig_room_type = px.pie(
         df,
-        names="room_type_fr",
+        names="room_type",
         title="Répartition des types de logements (en %)",
         hole=0.45,
     )
     fig_room_type.update_traces(textposition="inside", textinfo="percent+label")
-    fig_room_type.update_layout(margin=dict(l=0, r=0, t=40, b=0))
+    fig_room_type.update_layout(margin=dict(l=0, r=0, t=40, b=0), height=380)
 else:
     fig_room_type = px.pie(
         title="Répartition des types de logements (données manquantes)"
@@ -218,7 +206,8 @@ layout = html.Div(
                     [
                         dcc.Graph(
                             figure=fig_room_type,
-                            config={"displayModeBar": False},
+                            config={"displayModeBar": False, "responsive": False},
+                            style={"height": "380px"},
                         ),
                     ],
                     className="chart-block",
@@ -227,18 +216,19 @@ layout = html.Div(
             className="grid-2",
         ),
 
-        # Texte de transition / explication des graphes du bas
+        # Texte explication des graphes du bas
         html.Div(
             [
-                html.P(
-                    "Les deux graphiques suivants détaillent la dimension géographique des prix.\n\n"
-                    "À gauche, le bar chart présente les cinq arrondissements où le prix moyen par nuit est le plus élevé : "
-                    "il permet d’identifier rapidement les zones les plus chères de Paris.\n\n "
-                    "À droite, le boxplot montre la distribution des prix pour les dix arrondissements les plus représentés : "
-                    "chaque boîte résume les prix typiques (médiane et dispersion), tandis que les points au-dessus "
-                    "des moustaches correspondent aux annonces les plus atypiques ou les plus chères.",
+                dcc.Markdown(
+                    """Les deux graphiques suivants approfondissent la *dimension géographique* des prix Airbnb à Paris.  
+                        À gauche, le **classement des arrondissements les plus chers** met immédiatement en évidence les zones premium de la capitale, où la demande touristique et la proximité des monuments emblématiques tirent les prix vers le haut.  
+                        À droite, le **boxplot** permet d’observer la structure complète des prix dans les arrondissements les plus représentés :  
+                            - la **médiane**, qui reflète le prix typique,  
+                            - la **dispersion**, indicatrice de l’hétérogénéité du marché,  
+                            - et les **valeurs atypiques**, correspondant aux annonces très haut de gamme.
+                        Ces deux visualisations offrent ainsi une lecture plus fine des dynamiques locales, en montrant que l’attractivité d’un quartier influence fortement la diversité et le niveau des prix pratiqués.
+                    """,
                     className="section-text",
-                    style={"whiteSpace": "pre-line"},
                 ),
             ],
             className="analysis-block",
@@ -272,11 +262,11 @@ layout = html.Div(
         # Bloc d'analyse textuelle global
         html.Div(
             [
-                html.P(
-                    "On observe une forte concentration des prix dans une fourchette relativement serrée, "
-                    "avec quelques arrondissements nettement plus chers que la moyenne. "
-                    "Les types de logements les plus représentés et la distribution des prix par arrondissement "
-                    "permettent de repérer rapidement les zones plus abordables ou plus premium.",
+                dcc.Markdown(
+                    """ Globalement, ces analyses soulignent un marché Airbnb parisien **dense, contrasté et fortement structuré par la géographie**.  
+                        La majorité des annonces se concentre dans une fourchette de prix relativement accessible, mais certains arrondissements affichent des niveaux nettement plus élevés, reflet de **leur notoriété touristique** et de **leur attractivité**.  
+                        Les variations de prix suivent donc principalement **une logique géographique** : on retrouve au centre des prix moyens plus élevés alors que la périphérie se distinguent avec des prix plus bas.
+                        Ces résultats permettent d’obtenir une vision claire et synthétique du marché en montrant comment **la localisation**, **la demande touristique** et **la diversité des logements** influencent les prix à travers la capitale.""",
                     className="section-text",
                 ),
             ],

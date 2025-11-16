@@ -125,7 +125,7 @@ body {
     padding: 10px 14px;
     border-radius: 10px;
     color: #374151;
-    background: #f3f4f6;
+    background: white;
     border: 1px solid #e5e7eb;
     font-size: 14px;
     transition: 0.15s ease;
@@ -328,6 +328,10 @@ body {
     margin: 4px 0;
 }
 
+.content-wrapper {
+    padding-left: 20px;
+}
+
 /* Responsif pour la page /more */
 @media (max-width: 900px) {
     .main-two-cols {
@@ -338,3 +342,5 @@ body {
         order: -1; /* le résumé passe au-dessus des graphiques sur mobile */
     }
 }
+
+

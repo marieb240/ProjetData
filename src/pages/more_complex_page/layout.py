@@ -50,7 +50,7 @@ if not df_base.empty:
 # ---------- Options des filtres ----------
 
 # Arrondissements
-def _district_sort_key(x: str) -> tuple[int, str]:
+def _district_sort_key(x: str) -> tuple[int, int]:
     """
     Clé de tri pour les arrondissements :
     - d'abord ceux qui sont numériques (01, 02, ..., 20)
@@ -105,7 +105,6 @@ else:
 
 # ---------- Aides pour graphes vides ----------
 
-
 def _empty_map_figure() -> go.Figure:
     fig = px.scatter_mapbox(
         lat=[],
@@ -137,7 +136,7 @@ def _empty_hist_figure() -> go.Figure:
 
 layout = html.Div(
     [
-        html.H2("Analyse détaillée des annonces", className="section-title"),
+        html.H2("Carte détaillée des annonces Airbnb", className="section-title"),
         html.P(
             "Explorez les annonces Airbnb à Paris par arrondissement, niveau de prix et type de logement.",
             className="section-subtitle",
@@ -306,7 +305,8 @@ def update_detailed_view(arr_value, room_types, price_max_value, relayoutData):
 
 
 
-    # ----- Taille dynamique des marqueurs selon le zoom -----
+# ----- Taille dynamique des marqueurs selon le zoom -----
+
     def _get_zoom(rldata, default=11):
         if isinstance(rldata, dict):
             z = rldata.get("mapbox.zoom") or rldata.get("zoom")
@@ -316,9 +316,10 @@ def update_detailed_view(arr_value, room_types, price_max_value, relayoutData):
 
     zoom = _get_zoom(relayoutData, default=11)
     # petit à dézoom, + gros en zoomant (bornes sûres)
-    point_size = max(2, min(2.0 + 0.6 * (float(zoom) - 9.0), 7.0))
+    point_size = max(2, min(2 + 0.8 * (zoom - 9), 7))
 
-      # -------- Carte --------
+
+# -------- Carte --------
 
     fig_map = px.scatter_mapbox(
         data_frame=data,
@@ -327,7 +328,7 @@ def update_detailed_view(arr_value, room_types, price_max_value, relayoutData):
         color="price",
         hover_name="district",
         hover_data={"price": True, "room_type": True},
-        zoom= zoom if isinstance(zoom, (int, float)) else 11,
+        zoom=int(zoom) if isinstance(zoom, (int, float)) else 11,
         center={"lat": 48.8566, "lon": 2.3522},
         mapbox_style="open-street-map",
         title="Localisation des annonces filtrées",
@@ -378,7 +379,7 @@ def update_detailed_view(arr_value, room_types, price_max_value, relayoutData):
         price_counts,
         x="price_range",
         y="count",
-        title="Distribution des prix pour la sélection (par tranches)",
+        title="Distribution des prix pour la sélection ",
         labels={
             "price_range": "Tranche de prix",
             "count": "Nombre d'annonces",
