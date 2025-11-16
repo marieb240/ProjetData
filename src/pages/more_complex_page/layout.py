@@ -56,13 +56,13 @@ def _district_sort_key(x: str) -> tuple[int, str]:
     - d'abord ceux qui sont numériques (01, 02, ..., 20)
     - ensuite les autres valeurs éventuelles, triées alpha.
     """
-    x_str = str(x)
+    x_str = str(x).lower().replace("er", "").replace("e", "")
     try:
         # on met les arrondissements numériques en premier, formatés sur 2 chiffres
-        return (0, f"{int(x_str):02d}")
-    except Exception:
+        return (0, int(x_str))
+    except ValueError:
         # tout le reste passe après, trié alphabétiquement
-        return (1, x_str)
+        return (1, 999)
 
 # Liste des arrondissements
 arr_options: list[dict[str, Any]] = [
@@ -177,9 +177,12 @@ layout = html.Div(
                             id="more-price-max",
                             min=price_min,
                             max=price_max,
-                            step=5,
+                            step= 5,
                             value=price_max,
-                            tooltip={"placement": "bottom", "always_visible": False},
+                            # seulement les repères min & max
+                            marks={price_min: f"{price_min}€", price_max: f"{price_max}€"},
+                            tooltip={"placement": "bottom", "always_visible": True},
+                            updatemode="mouseup",
                         ),
                         html.Div(
                             id="more-price-max-label",
@@ -203,7 +206,12 @@ layout = html.Div(
                                 dcc.Graph(
                                     id="more-map",
                                     figure=_empty_map_figure(),
-                                    config={"displayModeBar": False},
+                                    clear_on_unhover=True,  
+                                    config={
+                                        "displayModeBar": False,   # affiche la barre (zoom +, -, reset…)
+                                        "scrollZoom": True,       # zoom avec la molette / trackpad},
+                                    }
+                                    
                                 ),
                             ],
                             className="chart-block",
@@ -260,8 +268,9 @@ layout = html.Div(
     Input("more-arrondissement", "value"),
     Input("more-room-type", "value"),
     Input("more-price-max", "value"),
+    Input("more-map", "relayoutData"),   # on récupère le zoom
 )
-def update_detailed_view(arr_value, room_types, price_max_value):
+def update_detailed_view(arr_value, room_types, price_max_value, relayoutData):
     # Sécurité si pas de données
     if df_base.empty:
         return (
@@ -295,7 +304,22 @@ def update_detailed_view(arr_value, room_types, price_max_value):
         )
         return _empty_map_figure(), _empty_hist_figure(), summary_children, slider_label
 
-    # -------- Carte --------
+
+
+    # ----- Taille dynamique des marqueurs selon le zoom -----
+    def _get_zoom(rldata, default=11):
+        if isinstance(rldata, dict):
+            z = rldata.get("mapbox.zoom") or rldata.get("zoom")
+            if isinstance(z, (int, float)):
+             return z
+        return default
+
+    zoom = _get_zoom(relayoutData, default=11)
+    # petit à dézoom, + gros en zoomant (bornes sûres)
+    point_size = max(2, min(2.0 + 0.6 * (float(zoom) - 9.0), 7.0))
+
+      # -------- Carte --------
+
     fig_map = px.scatter_mapbox(
         data_frame=data,
         lat="latitude",
@@ -303,12 +327,23 @@ def update_detailed_view(arr_value, room_types, price_max_value):
         color="price",
         hover_name="district",
         hover_data={"price": True, "room_type": True},
-        zoom=10,
+        zoom= zoom if isinstance(zoom, (int, float)) else 11,
         center={"lat": 48.8566, "lon": 2.3522},
         mapbox_style="open-street-map",
         title="Localisation des annonces filtrées",
     )
-    fig_map.update_layout(margin=dict(l=0, r=0, t=40, b=0))
+    # points encore plus petits + légère transparence
+    fig_map.update_traces(
+        marker=dict(
+            size=point_size, 
+            opacity=1),
+            line=dict(width=0)  # bords supprimés pour paraître plus fins
+        
+    )
+
+    fig_map.update_layout(
+        uirevision="map-state",
+        margin=dict(l=0, r=0, t=40, b=0))
 
     # -------- Histogramme  --------
     price_bins = [0, 50, 100, 150, 200, 300, 500, np.inf]
