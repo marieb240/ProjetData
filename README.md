@@ -77,7 +77,15 @@ C’est pour cette raison que nous avons choisi d’utiliser **un dataset initia
 Ainsi, même si cette partie n’a pas pu être développée dans le temps imparti, le projet est déjà conçu pour évoluer naturellement vers une version multi villes plus complète.
 
 ## 6. Copyright  
-Je déclare sur l’honneur que :  
+
+Nous déclarons sur l’honneur que l’ensemble du code fourni dans ce projet a été produit par nous-mêmes, à l’exception des éléments explicitement listés ci-dessous.  
+
+**Éléments externes déclarés**  
+
++ Syntaxes d’utilisation des figures Plotly inspirées de la documentation officielle : https://plotly.com/python
++ Structure du mode multipage Dash inspirée de la documentation officielle : https://dash.plotly.com
++ Utilisation de GitHub Copilot comme outils d’assistance à l’écriture du code mais les décisions de conception, d’organisation et de développement du dashboard ont été prises par nous-mêmes
+
 
 
 
