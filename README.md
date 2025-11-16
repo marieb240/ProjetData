@@ -86,6 +86,10 @@ Nous déclarons sur l’honneur que l’ensemble du code fourni dans ce projet a
 + Structure du mode multipage Dash inspirée de la documentation officielle : https://dash.plotly.com
 + Utilisation de GitHub Copilot comme outils d’assistance à l’écriture du code mais les décisions de conception, d’organisation et de développement du dashboard ont été prises par nous-mêmes
 
+## 7. Notre vidéo  
+
+https://drive.google.com/file/d/1DX5viDHPRYPZFRdInbLKxKaNMwRA97CD/view?usp=drive_link
+
 
 
 
